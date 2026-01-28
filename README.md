@@ -1,0 +1,2 @@
+# playingwithclaude
+Claude code projects
