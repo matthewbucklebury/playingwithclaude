@@ -44,11 +44,48 @@ to an HTTPS host for the "Near You" magic to work on phones.
 
 ## The data
 
-`js/data.js` holds a hand-curated set of ~130 notable London pubs and bars.
-Coordinates are approximate; ratings blend public review reputation with
-beer-guide acclaim; keywords are distilled from the things reviewers mention
-most. It's a starting point, not gospel — pull requests from thirsty
-correspondents welcome.
+Two layers:
+
+- **`js/osm-data.js` — full coverage.** Every named pub and bar in Greater
+  London (~4,300 of them) pulled from OpenStreetMap via the free
+  [Overpass API](https://overpass-api.de). No key, no billing, and the ODbL
+  license lets us store the snapshot in the repo. Shown as small purple dots;
+  keyword chips ("cask ale", "beer garden", "dog friendly") are derived from
+  OSM tags where mapped.
+- **`js/data.js` — the rated layer.** A hand-curated set of ~130 notable
+  pubs and bars with ratings, review keywords, and one-line verdicts. These
+  render as the big colour-coded blobs and rank first in planning mode. At
+  load time the app dedupes: any OSM entry matching a curated pub's name
+  within 300 m defers to the curated version.
+
+### Refreshing the full-coverage data
+
+```sh
+node scripts/fetch-osm.mjs   # rewrites js/osm-data.js, takes ~1 minute
+```
+
+The script queries Overpass for `amenity=pub` and `amenity=bar` inside the
+Greater London boundary, retries across three public mirrors if one is busy,
+dedupes, and regenerates the file. Re-run it every few months, commit, push —
+done. Please don't run it in a tight loop; the public Overpass servers are
+shared infrastructure.
+
+### Want live ratings for everything? (optional, costs money)
+
+OSM has no ratings, so unrated dots stay purple. The only APIs with review
+scores for every pub are commercial:
+
+- **Google Places API** — best data, but its terms require display on a
+  Google Map (not Leaflet/OSM), forbid caching results beyond 30 days, and
+  enriching ~4,300 places costs roughly $140+ per full pass (Nearby Search,
+  Advanced SKU). Doing it properly means swapping the map layer to Google
+  Maps JS and fetching ratings client-side on demand.
+- **Foursquare Places API** — free tier available, more permissive caching,
+  patchier UK ratings.
+
+The pragmatic path this repo takes: full coverage from OSM, quality signal
+from the curated layer. To promote any pub into the rated layer, add an entry
+to `js/data.js` — it will automatically replace its purple dot.
 
 ## Stack
 

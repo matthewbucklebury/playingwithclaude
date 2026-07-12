@@ -7,7 +7,6 @@
   "use strict";
 
   const LONDON_CENTRE = [51.5107, -0.1246]; // Trafalgar Square-ish
-  PUBS.forEach((p, i) => (p._idx = i)); // stable id — names can repeat (two Doves)
   const WALK_M_PER_MIN = 80;
 
   // ---- state ----
@@ -23,6 +22,7 @@
 
   // ---- rating → colour / size ----
   function ratingColor(r) {
+    if (r == null) return "#8a63ad"; // unrated OSM entries
     if (r >= 4.6) return "#2ecc40";
     if (r >= 4.4) return "#a3c644";
     if (r >= 4.2) return "#f2b01e";
@@ -71,8 +71,24 @@
     return true;
   }
   function visiblePubs() {
-    return PUBS.filter(matchesFilters);
+    return ALL.filter(matchesFilters);
   }
+
+  // ==========================================================================
+  // Dataset: curated (rated) + full OSM coverage (unrated)
+  // ==========================================================================
+  const normName = (s) =>
+    s.toLowerCase().replace(/^(the|ye olde?)\s+/, "").replace(/[^a-z0-9]/g, "");
+  const curatedKeys = PUBS.map((p) => ({ key: normName(p.name), lat: p.lat, lng: p.lng }));
+  const EXTRAS = (typeof OSM_PUBS === "undefined" ? [] : OSM_PUBS)
+    // drop OSM entries the curated list already covers (same name within 300 m)
+    .filter((o) => {
+      const k = normName(o.name);
+      return !curatedKeys.some((c) => c.key === k && haversineM(c, o) < 300);
+    })
+    .map((o) => ({ ...o, area: "", desc: "", rating: null }));
+  const ALL = PUBS.concat(EXTRAS);
+  ALL.forEach((p, i) => (p._idx = i)); // stable id — names can repeat (two Doves)
 
   // ==========================================================================
   // Map
@@ -92,23 +108,46 @@
   let planMarker = null;
   let planCircle = null;
 
+  function ratingBadge(p) {
+    return p.rating != null
+      ? `<span class="rating-badge" style="background:${ratingColor(p.rating)}">${p.rating.toFixed(1)}</span>`
+      : `<span class="rating-badge unrated">&mdash;</span>`;
+  }
+
   function popupHtml(p) {
-    const color = ratingColor(p.rating);
     const dist = userLoc ? haversineM(userLoc, p) : null;
     const gmaps = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=walking`;
+    const badge = p.rating != null
+      ? `<span class="rating-badge" style="background:${ratingColor(p.rating)}">${p.rating.toFixed(1)} ${stars(p.rating)}</span>`
+      : `<span class="rating-badge unrated">unrated</span>`;
     return `
       <div class="pop-name">${escapeHtml(p.name)}</div>
       <div class="pop-meta">
-        <span class="rating-badge" style="background:${color}">${p.rating.toFixed(1)} ${stars(p.rating)}</span>
-        &nbsp;${escapeHtml(p.area)} &middot; ${p.type}
+        ${badge}
+        &nbsp;${escapeHtml(p.area || "London")} &middot; ${p.type}
         ${dist != null ? ` &middot; ${fmtDist(dist)} (&#128694; ${walkMins(dist)} min)` : ""}
       </div>
-      <div class="pop-desc">${escapeHtml(p.desc)}</div>
+      ${p.desc ? `<div class="pop-desc">${escapeHtml(p.desc)}</div>` : ""}
       <div>${p.keywords.map((k) => `<span class="kw">${escapeHtml(k)}</span>`).join("")}</div>
       <div class="pop-links"><a href="${gmaps}" target="_blank" rel="noopener">&#129517; Walking directions</a></div>`;
   }
 
-  const markers = PUBS.map((p) => {
+  // full-coverage OSM layer: thousands of small dots, so draw them on canvas
+  const canvasRenderer = L.canvas({ padding: 0.4 });
+  EXTRAS.forEach((p) => {
+    const m = L.circleMarker([p.lat, p.lng], {
+      renderer: canvasRenderer,
+      radius: 4.5,
+      color: "#241333",
+      weight: 1,
+      fillColor: "#8a63ad",
+      fillOpacity: 0.8,
+    }).addTo(map);
+    m.bindPopup(() => popupHtml(p), { maxWidth: 290 });
+    p._marker = m;
+  });
+
+  PUBS.forEach((p) => {
     const size = ratingSize(p.rating);
     const icon = L.divIcon({
       className: "",
@@ -129,24 +168,25 @@
     }).addTo(map);
     m.bindPopup(() => popupHtml(p), { maxWidth: 290 });
     p._marker = m;
-    return m;
   });
 
   function refreshMarkers() {
     let shown = 0;
-    PUBS.forEach((p) => {
-      const el = p._marker.getElement();
-      if (!el) return;
-      const blob = el.querySelector(".pub-marker");
-      if (matchesFilters(p)) {
-        blob.classList.remove("dim");
-        shown++;
+    ALL.forEach((p) => {
+      const show = matchesFilters(p);
+      if (show) shown++;
+      if (p.rating != null) {
+        const el = p._marker.getElement();
+        if (!el) return;
+        el.querySelector(".pub-marker").classList.toggle("dim", !show);
       } else {
-        blob.classList.add("dim");
+        p._marker.setStyle(
+          show ? { opacity: 1, fillOpacity: 0.8 } : { opacity: 0.05, fillOpacity: 0.05 }
+        );
       }
     });
     document.getElementById("result-count").textContent =
-      shown === PUBS.length ? `${shown} spots` : `${shown} of ${PUBS.length}`;
+      shown === ALL.length ? `${shown} spots` : `${shown} of ${ALL.length}`;
   }
 
   function focusPub(p) {
@@ -218,8 +258,9 @@
       .sort((a, b) =>
         nearSort === "near"
           ? a.dist - b.dist
-          : // "best worth the walk": rating dominates, distance tie-breaks it down
-            (b.p.rating * 2 - b.dist / 1000) - (a.p.rating * 2 - a.dist / 1000)
+          : // "best worth the walk": rating dominates, distance tie-breaks it down;
+            // unrated spots count as a middling 3.5
+            ((b.p.rating ?? 3.5) * 2 - b.dist / 1000) - ((a.p.rating ?? 3.5) * 2 - a.dist / 1000)
       )
       .slice(0, 40);
 
@@ -231,13 +272,13 @@
         <div class="pub-card" style="border-left-color:${color}" data-idx="${p._idx}">
           <div class="card-top">
             <span class="card-name">${escapeHtml(p.name)}</span>
-            <span class="rating-badge" style="background:${color}">${p.rating.toFixed(1)}</span>
+            ${ratingBadge(p)}
           </div>
           <div class="card-meta">
             <span class="type-tag">${p.type}</span>
-            ${escapeHtml(p.area)} &middot; ${fmtDist(dist)} &middot; &#128694; ${walkMins(dist)} min
+            ${escapeHtml(p.area || "London")} &middot; ${fmtDist(dist)} &middot; &#128694; ${walkMins(dist)} min
           </div>
-          <div class="card-kws">${p.keywords.map((k) => `<span class="kw">${escapeHtml(k)}</span>`).join("")}</div>
+          ${p.keywords.length ? `<div class="card-kws">${p.keywords.map((k) => `<span class="kw">${escapeHtml(k)}</span>`).join("")}</div>` : ""}
         </div>`;
           })
           .join("")
@@ -245,7 +286,7 @@
 
     listEl.querySelectorAll(".pub-card").forEach((card) => {
       card.addEventListener("click", () => {
-        const p = PUBS[Number(card.dataset.idx)];
+        const p = ALL[Number(card.dataset.idx)];
         if (p) focusPub(p);
       });
     });
@@ -324,26 +365,29 @@
       return;
     }
     if (planCircle) planCircle.setRadius(planRadius);
-    const rows = visiblePubs()
+    const inReach = visiblePubs()
       .map((p) => ({ p, dist: haversineM(planPoint, p) }))
       .filter((r) => r.dist <= planRadius)
-      .sort((a, b) => b.p.rating - a.p.rating || a.dist - b.dist)
-      .slice(0, 12);
+      // rated first (best on top), then unrated by distance
+      .sort((a, b) => (b.p.rating ?? 0) - (a.p.rating ?? 0) || a.dist - b.dist);
+    const rows = inReach.slice(0, 12);
+    const more = inReach.length - rows.length;
 
     el.innerHTML = rows.length
       ? rows
           .map(({ p, dist }) => `
         <div class="plan-result" data-idx="${p._idx}">
-          <span class="rating-badge" style="background:${ratingColor(p.rating)}">${p.rating.toFixed(1)}</span>
-          <span class="name">${escapeHtml(p.name)} <span class="dist">&middot; ${escapeHtml(p.keywords[0])}</span></span>
+          ${ratingBadge(p)}
+          <span class="name">${escapeHtml(p.name)}${p.keywords[0] ? ` <span class="dist">&middot; ${escapeHtml(p.keywords[0])}</span>` : ""}</span>
           <span class="dist">${fmtDist(dist)}</span>
         </div>`)
-          .join("")
+          .join("") +
+        (more > 0 ? `<p class="plan-empty">&hellip;plus ${more} more within reach &mdash; zoom the map to browse them.</p>` : "")
       : '<p class="plan-empty">Not a decent drop within reach. Widen the radius, mortal.</p>';
 
     el.querySelectorAll(".plan-result").forEach((row) => {
       row.addEventListener("click", () => {
-        const p = PUBS[Number(row.dataset.idx)];
+        const p = ALL[Number(row.dataset.idx)];
         if (p) { map.flyTo([p.lat, p.lng], 16, { duration: 0.6 }); p._marker.openPopup(); }
       });
     });
@@ -418,11 +462,16 @@
   // Search & filters
   // ==========================================================================
   const searchInput = document.getElementById("search");
+  let searchTimer = null;
   searchInput.addEventListener("input", () => {
-    searchTerm = searchInput.value.trim().toLowerCase();
-    refreshMarkers();
-    renderNearList();
-    if (planActive) renderPlanResults();
+    // debounced — restyling ~4.5k markers per keystroke would stutter on phones
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      searchTerm = searchInput.value.trim().toLowerCase();
+      refreshMarkers();
+      renderNearList();
+      if (planActive) renderPlanResults();
+    }, 150);
   });
   document.getElementById("clear-search").addEventListener("click", () => {
     searchInput.value = "";

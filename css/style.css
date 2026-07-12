@@ -224,6 +224,12 @@ body {
   font-size: 13px;
   padding: 2px 7px;
 }
+.rating-badge.unrated {
+  background: rgba(138, 99, 173, .35);
+  border: 1px solid #8a63ad;
+  color: var(--parchment-dim);
+  font-weight: normal;
+}
 
 .kw {
   display: inline-block;
