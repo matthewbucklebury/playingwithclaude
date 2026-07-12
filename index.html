@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#160b1e">
+  <meta name="description" content="The Goblin's Guide — a searchable, location-aware map of London's best pubs and bars. What's the matter, Lager Boy?">
+  <title>The Goblin's Guide to London Pubs</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127866;</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pirata+One&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ============ HEADER ============ -->
+  <header id="header">
+    <div class="brand">
+      <span class="goblin" aria-hidden="true">&#128127;</span>
+      <div class="brand-text">
+        <h1>The Goblin&rsquo;s Guide</h1>
+        <p class="tagline">What&rsquo;s the matter, Lager&nbsp;Boy &mdash; afraid you might <em>taste</em> something?</p>
+      </div>
+    </div>
+    <div class="search-row">
+      <input id="search" type="search" placeholder="Search pubs, areas, or vibes&hellip; e.g. &lsquo;cask ale&rsquo;, &lsquo;Soho&rsquo;" autocomplete="off">
+      <button id="clear-search" class="ghost-btn" title="Clear search" aria-label="Clear search">&times;</button>
+    </div>
+    <div class="filter-row" role="group" aria-label="Filters">
+      <button class="chip filter-chip active" data-type="all">All</button>
+      <button class="chip filter-chip" data-type="pub">Pubs</button>
+      <button class="chip filter-chip" data-type="bar">Bars</button>
+      <button class="chip filter-chip" data-min="4.4" id="best-only">&#9733; 4.4+ only</button>
+      <span id="result-count" class="count"></span>
+    </div>
+  </header>
+
+  <!-- ============ MAP VIEW ============ -->
+  <main id="view-map" class="view active">
+    <div id="map" role="application" aria-label="Map of London pubs"></div>
+
+    <button id="locate-btn" class="fab" title="Find me">&#10148;</button>
+
+    <div id="legend" class="legend">
+      <button id="legend-toggle" class="legend-title">Goblin&rsquo;s verdict &#9662;</button>
+      <div class="legend-body">
+        <div><span class="dot" style="background:#2ecc40"></span> 4.6+ &mdash; nectar of the goblins</div>
+        <div><span class="dot" style="background:#a3c644"></span> 4.4 &mdash; a proper pint</div>
+        <div><span class="dot" style="background:#f2b01e"></span> 4.2 &mdash; decent, mortal</div>
+        <div><span class="dot" style="background:#e2711d"></span> 4.0 &mdash; drinkable&hellip; just</div>
+        <div><span class="dot" style="background:#c0392b"></span> below 4.0 &mdash; lager boy territory</div>
+        <div class="legend-note">Bigger blob = better pub</div>
+      </div>
+    </div>
+
+    <div id="plan-panel" class="plan-panel hidden">
+      <div class="plan-head">
+        <strong>&#128506; Planning mode</strong>
+        <button id="plan-close" class="ghost-btn" aria-label="Close planning mode">&times;</button>
+      </div>
+      <p class="plan-hint">Tap the map to drop your pin, or summon an area:</p>
+      <div class="plan-controls">
+        <select id="plan-area" aria-label="Choose an area"><option value="">&mdash; choose an area &mdash;</option></select>
+        <label class="radius-label">Radius: <span id="radius-val">800&nbsp;m</span>
+          <input id="plan-radius" type="range" min="250" max="2000" step="50" value="800">
+        </label>
+      </div>
+      <div id="plan-results" class="plan-results"></div>
+    </div>
+  </main>
+
+  <!-- ============ NEAR YOU VIEW ============ -->
+  <section id="view-near" class="view">
+    <div class="list-header">
+      <h2>Near you</h2>
+      <div class="sort-toggle" role="group" aria-label="Sort order">
+        <button class="chip sort-chip active" data-sort="near">Nearest</button>
+        <button class="chip sort-chip" data-sort="best">Best worth the walk</button>
+      </div>
+      <p id="near-status" class="status"></p>
+    </div>
+    <div id="near-list" class="card-list"></div>
+  </section>
+
+  <!-- ============ TAB BAR ============ -->
+  <nav id="tabbar" aria-label="Main navigation">
+    <button class="tab active" data-view="map"><span class="tab-icon">&#128506;</span>Map</button>
+    <button class="tab" data-view="near"><span class="tab-icon">&#128205;</span>Near You</button>
+    <button class="tab" data-view="plan"><span class="tab-icon">&#129517;</span>Plan</button>
+  </nav>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
