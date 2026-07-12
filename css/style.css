@@ -288,6 +288,27 @@ body {
 .legend.collapsed .legend-body { display: none; }
 .legend-note { font-style: italic; color: var(--parchment-dim); margin-top: 5px; }
 
+/* must match ratingColor() in app.js: t=x^1.6, hsl(t*125, 78%, 48−t*6%) */
+.grad-bar {
+  height: 10px;
+  border-radius: 5px;
+  border: 1px solid rgba(243, 227, 195, .5);
+  background: linear-gradient(90deg,
+    hsl(0, 78%, 48%), hsl(14, 78%, 47%), hsl(41, 78%, 46%),
+    hsl(79, 78%, 44%), hsl(125, 78%, 42%));
+}
+.grad-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  line-height: 1.25;
+  color: var(--parchment-dim);
+  margin: 4px 0 7px;
+}
+.grad-labels span { text-align: center; }
+.grad-labels span:first-child { text-align: left; }
+.grad-labels span:last-child { text-align: right; }
+
 .dot {
   display: inline-block;
   width: 11px; height: 11px;

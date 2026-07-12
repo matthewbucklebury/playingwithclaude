@@ -21,13 +21,14 @@
   let planActive = false;
 
   // ---- rating → colour / size ----
+  // continuous spectrum: full red at ≤3.5, through orange/amber, to full green
+  // at ≥4.7. The exponent keeps green scarce — most pubs sit in 4.0–4.5, so a
+  // linear ramp would paint nearly everything greenish.
   function ratingColor(r) {
     if (r == null) return "#8a63ad"; // unrated OSM entries
-    if (r >= 4.6) return "#2ecc40";
-    if (r >= 4.4) return "#a3c644";
-    if (r >= 4.2) return "#f2b01e";
-    if (r >= 4.0) return "#e2711d";
-    return "#c0392b";
+    const x = Math.max(0, Math.min(1, (r - 3.5) / (4.7 - 3.5)));
+    const t = Math.pow(x, 1.6);
+    return `hsl(${Math.round(t * 125)}, 78%, ${Math.round(48 - t * 6)}%)`;
   }
   function ratingSize(r) {
     // 3.8 → ~24px, 4.4 → ~36px, 4.7 → ~42px
