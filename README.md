@@ -5,6 +5,10 @@
 A searchable, mobile-first map of London's best pubs and bars. No build step,
 no backend — a single static page you can host anywhere.
 
+> **Working on this project?** Start with [`CLAUDE.md`](CLAUDE.md) (rules and
+> commands) and [`docs/HANDOVER.md`](docs/HANDOVER.md) (current state, task
+> backlog, decisions). Operators: [`docs/OPERATOR-GUIDE.md`](docs/OPERATOR-GUIDE.md).
+
 ## Features
 
 - **Map view** — every pub is a blob on a dark map, **colour-coded by rating**
